@@ -8,6 +8,7 @@ const connectRedis = require('./db/redis');
 
 // 👇👇👇 1. IMPORTAR TODAS LAS RUTAS 👇👇👇
 const categoriasRoutes = require('./routes/categorias.routes');
+const productosRoutes = require('./routes/productos.routes'); // <-- PRODUCTOS
 const inventarioRoutes = require('./routes/inventario.routes'); // <-- NUEVO
 const pedidosRoutes = require('./routes/pedidos.routes'); // <-- NUEVO
 
@@ -30,6 +31,7 @@ app.get('/', (req, res) => {
 
 // 👇👇👇 2. REGISTRAR LAS RUTAS 👇👇👇
 app.use('/api/categorias', categoriasRoutes);
+app.use('/api/productos', productosRoutes); // <-- PRODUCTOS REGISTRO
 app.use('/api/inventario', inventarioRoutes); // <-- NUEVO REGISTRO
 app.use('/api/pedidos', pedidosRoutes); // <-- NUEVO REGISTRO
 
