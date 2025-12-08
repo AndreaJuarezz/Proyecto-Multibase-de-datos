@@ -6,8 +6,10 @@ const connectMySQL = require('./db/mysql');
 const connectMongo = require('./db/mongo');
 const connectRedis = require('./db/redis');
 
-// IMPORTAR RUTA DE CATEGORIAS
+// 👇👇👇 1. IMPORTAR TODAS LAS RUTAS 👇👇👇
 const categoriasRoutes = require('./routes/categorias.routes');
+const inventarioRoutes = require('./routes/inventario.routes'); // <-- NUEVO
+const pedidosRoutes = require('./routes/pedidos.routes'); // <-- NUEVO
 
 const app = express();
 
@@ -26,8 +28,10 @@ app.get('/', (req, res) => {
     res.send('API Multibase funcionando correctamente 🚀');
 });
 
-// 👇👇👇 AQUI REGISTRAS LA RUTA DE CATEGORIAS 👇👇👇
+// 👇👇👇 2. REGISTRAR LAS RUTAS 👇👇👇
 app.use('/api/categorias', categoriasRoutes);
+app.use('/api/inventario', inventarioRoutes); // <-- NUEVO REGISTRO
+app.use('/api/pedidos', pedidosRoutes); // <-- NUEVO REGISTRO
 
 // Exportar app
 module.exports = app;
