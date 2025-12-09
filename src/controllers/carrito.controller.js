@@ -35,8 +35,11 @@ exports.obtenerCarrito = async (req, res) => {
 
     res.json({ carrito_id: carritoId, usuario_id: usuarioId, items });
   } catch (error) {
-    console.error('Error al obtener carrito:', error);
-    res.status(500).json({ error: 'Error al obtener carrito' });
+    console.error('Error al obtener carrito:', error.message, error.stack);
+    res.status(500).json({ 
+      error: 'Error al obtener carrito',
+      detalle: error.message
+    });
   }
 };
 
@@ -46,8 +49,13 @@ exports.agregarItem = async (req, res) => {
     const { usuarioId } = req.params;
     const { producto_id, cantidad } = req.body;
 
-    if (!producto_id || !cantidad || Number(cantidad) <= 0) {
-      return res.status(400).json({ error: 'producto_id y cantidad (>0) son obligatorios' });
+    if (!producto_id || cantidad === undefined || cantidad === null) {
+      return res.status(400).json({ error: 'producto_id y cantidad son obligatorios' });
+    }
+
+    const cantidadNum = Number(cantidad);
+    if (isNaN(cantidadNum) || cantidadNum <= 0) {
+      return res.status(400).json({ error: 'cantidad debe ser un número mayor a 0' });
     }
 
     const pool = getPool();
@@ -71,7 +79,7 @@ exports.agregarItem = async (req, res) => {
     );
 
     if (itemRows.length > 0) {
-      const nuevo = itemRows[0].cantidad + Number(cantidad);
+      const nuevo = Number(itemRows[0].cantidad) + cantidadNum;
       if (nuevo > stockDisponible) {
         return res.status(400).json({ error: `Stock insuficiente. Disponible: ${stockDisponible}, solicitado: ${nuevo}` });
       }
@@ -84,20 +92,23 @@ exports.agregarItem = async (req, res) => {
     }
 
     // Validar stock para nuevo item
-    if (Number(cantidad) > stockDisponible) {
-      return res.status(400).json({ error: `Stock insuficiente. Disponible: ${stockDisponible}, solicitado: ${Number(cantidad)}` });
+    if (cantidadNum > stockDisponible) {
+      return res.status(400).json({ error: `Stock insuficiente. Disponible: ${stockDisponible}, solicitado: ${cantidadNum}` });
     }
 
     // Inserta nuevo item
     await pool.query(
       'INSERT INTO carrito_items (carrito_id, producto_id, cantidad, borrado) VALUES (?, ?, ?, 0)',
-      [carritoId, producto_id, Number(cantidad)]
+      [carritoId, producto_id, cantidadNum]
     );
 
     res.status(201).json({ mensaje: 'Producto agregado al carrito' });
   } catch (error) {
-    console.error('Error al agregar item al carrito:', error);
-    res.status(500).json({ error: 'Error al agregar item al carrito' });
+    console.error('Error al agregar item al carrito:', error.message, error.stack);
+    res.status(500).json({ 
+      error: 'Error al agregar item al carrito',
+      detalle: error.message
+    });
   }
 };
 
@@ -119,8 +130,11 @@ exports.eliminarItem = async (req, res) => {
 
     res.json({ mensaje: 'Producto eliminado del carrito' });
   } catch (error) {
-    console.error('Error al eliminar item del carrito:', error);
-    res.status(500).json({ error: 'Error al eliminar item del carrito' });
+    console.error('Error al eliminar item del carrito:', error.message, error.stack);
+    res.status(500).json({ 
+      error: 'Error al eliminar item del carrito',
+      detalle: error.message
+    });
   }
 };
 
@@ -138,7 +152,10 @@ exports.vaciarCarrito = async (req, res) => {
 
     res.json({ mensaje: 'Carrito vaciado' });
   } catch (error) {
-    console.error('Error al vaciar carrito:', error);
-    res.status(500).json({ error: 'Error al vaciar carrito' });
+    console.error('Error al vaciar carrito:', error.message, error.stack);
+    res.status(500).json({ 
+      error: 'Error al vaciar carrito',
+      detalle: error.message
+    });
   }
 };

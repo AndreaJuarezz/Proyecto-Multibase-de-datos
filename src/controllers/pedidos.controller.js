@@ -13,10 +13,10 @@ exports.getAllPedidos = async (req, res) => {
         const pool = getPool();
         if (!pool) return res.status(500).json({ error: "Error de conexión a la base de datos." });
 
-        // Solo selecciona pedidos donde 'eliminado' sea 0
-        const [rows] = await pool.query('SELECT * FROM Pedidos WHERE eliminado = 0');
+        // Obtiene todos los pedidos
+        const [rows] = await pool.query('SELECT * FROM pedidos');
         
-        res.json({ mensaje: "Lista de Pedidos activos", data: rows });
+        res.json({ mensaje: "Lista de Pedidos", data: rows });
 
     } catch (error) {
         console.error("Error al obtener pedidos:", error);
@@ -28,14 +28,42 @@ exports.getAllPedidos = async (req, res) => {
 };
 
 /**
+ * Obtiene un pedido por ID.
+ * GET /api/pedidos/:id
+ */
+exports.getPedidoById = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const pool = getPool();
+        if (!pool) return res.status(500).json({ error: "Error de conexión a la base de datos." });
+
+        const [rows] = await pool.query('SELECT * FROM pedidos WHERE id = ?', [id]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: "Pedido no encontrado." });
+        }
+
+        res.json({ mensaje: "Pedido encontrado", data: rows[0] });
+
+    } catch (error) {
+        console.error("Error al obtener pedido por ID:", error);
+        res.status(500).json({ 
+            error: "Error interno del servidor al obtener pedido",
+            detalle: error.message
+        });
+    }
+};
+
+/**
  * Crea un nuevo pedido en la base de datos (VERSIÓN CORREGIDA FINAL).
  * POST /api/pedidos
  */
 exports.createPedido = async (req, res) => {
-    const { id_usuario, estado } = req.body;
+    const { usuario_id, estado } = req.body;
 
-    if (!id_usuario) {
-        return res.status(400).json({ error: "Falta id_usuario." });
+    if (!usuario_id) {
+        return res.status(400).json({ error: "Falta usuario_id." });
     }
 
     const estadoFinal = estado || 'pendiente';
@@ -51,7 +79,7 @@ exports.createPedido = async (req, res) => {
         // Obtener carrito del usuario
         const [carritoRows] = await conn.query(
             'SELECT id FROM carrito WHERE usuario_id = ? AND borrado = 0 LIMIT 1',
-            [id_usuario]
+            [usuario_id]
         );
         if (carritoRows.length === 0) {
             await conn.rollback();
@@ -91,8 +119,8 @@ exports.createPedido = async (req, res) => {
 
         // Insertar pedido
         const [pedidoRes] = await conn.query(
-            'INSERT INTO Pedidos (id_usuario, fecha_pedido, estado, total) VALUES (?, NOW(), ?, ?)',
-            [id_usuario, estadoFinal, totalCalculado]
+            'INSERT INTO pedidos (usuario_id, fecha_pedido, estado, total) VALUES (?, NOW(), ?, ?)',
+            [usuario_id, estadoFinal, totalCalculado]
         );
 
         // Descontar stock de cada producto
@@ -137,10 +165,10 @@ exports.createPedido = async (req, res) => {
 
 /**
  * Actualiza el estado de un pedido (PATCH).
- * PATCH /api/pedidos/:id_pedido
+ * PATCH /api/pedidos/:id
  */
 exports.updatePedido = async (req, res) => {
-    const id_pedido = req.params.id_pedido;
+    const { id } = req.params;
     const { estado } = req.body; 
 
     if (!estado) {
@@ -152,14 +180,14 @@ exports.updatePedido = async (req, res) => {
         const pool = getPool();
         if (!pool) return res.status(500).json({ error: "Error de conexión a la base de datos." });
 
-        const sql = 'UPDATE Pedidos SET estado = ? WHERE id_pedido = ? AND eliminado = 0';
-        const [result] = await pool.query(sql, [estado, id_pedido]);
+        const sql = 'UPDATE pedidos SET estado = ? WHERE id = ?';
+        const [result] = await pool.query(sql, [estado, id]);
 
         if (result.affectedRows === 0) {
-            return res.status(404).json({ error: "Pedido no encontrado o ya eliminado." });
+            return res.status(404).json({ error: "Pedido no encontrado." });
         }
 
-        res.json({ mensaje: `Estado del Pedido ID ${id_pedido} actualizado a: ${estado}.` });
+        res.json({ mensaje: `Estado del Pedido ID ${id} actualizado a: ${estado}.` });
     } catch (error) {
         console.error("Error al actualizar pedido:", error);
         res.status(500).json({ error: "Error al actualizar el estado del pedido." });
@@ -168,10 +196,10 @@ exports.updatePedido = async (req, res) => {
 
 /**
  * Realiza el borrado lógico de un pedido.
- * DELETE /api/pedidos/:id_pedido
+ * DELETE /api/pedidos/:id
  */
 exports.deletePedido = async (req, res) => {
-    const id_pedido = req.params.id_pedido;
+    const { id } = req.params;
     
     try {
         // 🔑 OBTENER EL POOL AQUÍ
@@ -179,14 +207,14 @@ exports.deletePedido = async (req, res) => {
         if (!pool) return res.status(500).json({ error: "Error de conexión a la base de datos." });
 
         // Borrado Lógico: Establece 'eliminado' a 1
-        const sql = 'UPDATE Pedidos SET eliminado = 1 WHERE id_pedido = ?';
-        const [result] = await pool.query(sql, [id_pedido]);
+        const sql = 'UPDATE pedidos SET eliminado = 1 WHERE id = ?';
+        const [result] = await pool.query(sql, [id]);
 
         if (result.affectedRows === 0) {
-            return res.status(404).json({ error: "Pedido no encontrado o ya eliminado." });
+            return res.status(404).json({ error: "Pedido no encontrado." });
         }
         
-        res.json({ mensaje: `Pedido ID ${id_pedido} marcado como eliminado (Borrado Lógico).` });
+        res.json({ mensaje: `Pedido ID ${id} marcado como eliminado (Borrado Lógico).` });
 
     } catch (error) {
         console.error("Error al eliminar pedido:", error);

@@ -19,7 +19,7 @@ Este proyecto es una aplicación de e-commerce que utiliza una arquitectura mult
 
 ---
 
-## 📦 Requisitos Previos
+##  Requisitos Previos
 
 Asegúrate de tener instalado:
 
@@ -30,7 +30,7 @@ Asegúrate de tener instalado:
 
 ---
 
-## 🚀 Instalación
+##  Instalación
 
 ### 1. Clonar el repositorio
 
@@ -174,6 +174,8 @@ CREATE TABLE IF NOT EXISTS inventario (
     id INT PRIMARY KEY AUTO_INCREMENT,
     producto_id INT UNIQUE,
     cantidad INT DEFAULT 0,
+    ubicacion VARCHAR(255),
+    activo TINYINT DEFAULT 1,
     actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (producto_id) REFERENCES productos(id)
 );
@@ -364,17 +366,31 @@ Content-Type: application/json
 
 ### Inventario
 
-- `GET /inventario` - Obtener todo el inventario
+- `GET /inventario` - Obtener todo el inventario activo
 - `GET /inventario/:productoId` - Obtener stock de un producto
-- `PATCH /inventario/:productoId` - Actualizar stock
+- `POST /inventario/ajustar` - Ajustar/Crear existencias de un producto
+- `PATCH /inventario/:productoId` - Actualizar ubicación del producto
+- `DELETE /inventario/:productoId` - Borrado lógico del inventario
 
-**Ejemplo - Actualizar stock:**
+**Ejemplo - Ajustar inventario:**
+```bash
+POST http://localhost:3000/api/inventario/ajustar
+Content-Type: application/json
+
+{
+    "producto_id": 1,
+    "cantidad": 50,
+    "ubicacion": "Almacén A"
+}
+```
+
+**Ejemplo - Actualizar ubicación:**
 ```bash
 PATCH http://localhost:3000/api/inventario/1
 Content-Type: application/json
 
 {
-    "cantidad": 30
+    "ubicacion": "Almacén B"
 }
 ```
 
@@ -383,7 +399,7 @@ Content-Type: application/json
 - `GET /usuarios` - Obtener todos los usuarios
 - `GET /usuarios/:id` - Obtener usuario por ID
 - `POST /usuarios` - Crear nuevo usuario
-- `PUT /usuarios/:id` - Actualizar usuario
+- `PATCH /usuarios/:id` - Actualizar usuario
 - `DELETE /usuarios/:id` - Eliminar usuario
 
 **Ejemplo - Crear usuario:**

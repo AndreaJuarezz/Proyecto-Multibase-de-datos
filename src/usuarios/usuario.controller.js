@@ -18,6 +18,20 @@ async function listarUsuarios(req, res) {
   res.json(usuarios);
 }
 
+// Obtener usuario por ID
+async function obtenerUsuarioPorId(req, res) {
+  const { id } = req.params;
+  try {
+    const usuario = await Usuario.findById(id);
+    if (!usuario || usuario.deleted) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    res.json(usuario);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+}
+
 // Actualizar usuario
 async function actualizarUsuario(req, res) {
   const { id } = req.params;
@@ -51,6 +65,7 @@ async function borrarUsuario(req, res) {
 module.exports = {
   crearUsuario,
   listarUsuarios,
+  obtenerUsuarioPorId,
   actualizarUsuario,
   borrarUsuario
 };

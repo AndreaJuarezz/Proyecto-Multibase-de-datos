@@ -79,8 +79,16 @@ exports.crearProducto = async (req, res) => {
             [nombre, descripcion, Number(precio), categoria_id, Number(stock)]
         );
 
+        const productoId = result.insertId;
+
+        // Crear automáticamente el registro en inventario
+        await pool.query(
+            "INSERT INTO inventario (producto_id, cantidad) VALUES (?, ?)",
+            [productoId, Number(stock)]
+        );
+
         res.status(201).json({
-            id: result.insertId,
+            id: productoId,
             nombre,
             descripcion,
             precio: Number(precio),
