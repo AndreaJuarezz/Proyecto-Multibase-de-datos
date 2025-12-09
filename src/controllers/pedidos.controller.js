@@ -1,5 +1,7 @@
 // src/controllers/pedidos.controller.js
-const pool = require('../db/mysql').getPool(); 
+
+// Importamos ÚNICAMENTE la función getPool (no el pool en sí)
+const getPool = require('../db/mysql').getPool;
 
 /**
  * Obtiene todos los pedidos registrados que no están eliminados.
@@ -7,6 +9,10 @@ const pool = require('../db/mysql').getPool();
  */
 exports.getAllPedidos = async (req, res) => {
     try {
+        // 🔑 OBTENER EL POOL AQUÍ
+        const pool = getPool();
+        if (!pool) return res.status(500).json({ error: "Error de conexión a la base de datos." });
+
         // Solo selecciona pedidos donde 'eliminado' sea 0
         const [rows] = await pool.query('SELECT * FROM Pedidos WHERE eliminado = 0');
         
@@ -22,7 +28,7 @@ exports.getAllPedidos = async (req, res) => {
 };
 
 /**
- * Crea un nuevo pedido en la base de datos.
+ * Crea un nuevo pedido en la base de datos (VERSIÓN CORREGIDA FINAL).
  * POST /api/pedidos
  */
 exports.createPedido = async (req, res) => {
@@ -33,11 +39,14 @@ exports.createPedido = async (req, res) => {
     }
 
     try {
-        const fecha_pedido = new Date();
+        // 🔑 OBTENER EL POOL AQUÍ
+        const pool = getPool();
+        if (!pool) return res.status(500).json({ error: "Error de conexión a la base de datos." });
         
-        // Consulta INSERT para agregar el nuevo pedido
-        const sql = 'INSERT INTO Pedidos (id_usuario, fecha_pedido, estado, total) VALUES (?, ?, ?, ?)';
-        const [result] = await pool.query(sql, [id_usuario, fecha_pedido, estado, total]);
+        // CORRECCIÓN: Usamos NOW() de MySQL para la fecha.
+        // NOTA: La columna id_usuario ya fue modificada a VARCHAR(30)
+        const sql = 'INSERT INTO Pedidos (id_usuario, fecha_pedido, estado, total) VALUES (?, NOW(), ?, ?)';
+        const [result] = await pool.query(sql, [id_usuario, estado, total]);
 
         // La inserción fue exitosa
         res.status(201).json({ 
@@ -46,8 +55,11 @@ exports.createPedido = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Error al crear pedido:", error);
-        res.status(500).json({ error: "Error interno al crear el pedido." });
+        console.error("Error al crear pedido (FALLO FINAL):", error); 
+        res.status(500).json({ 
+            error: "Error interno al crear el pedido.",
+            detalle: error.message // Mostramos el error de Node.js para un mejor diagnóstico si falla
+        });
     }
 };
 
@@ -64,6 +76,10 @@ exports.updatePedido = async (req, res) => {
     }
 
     try {
+        // 🔑 OBTENER EL POOL AQUÍ
+        const pool = getPool();
+        if (!pool) return res.status(500).json({ error: "Error de conexión a la base de datos." });
+
         const sql = 'UPDATE Pedidos SET estado = ? WHERE id_pedido = ? AND eliminado = 0';
         const [result] = await pool.query(sql, [estado, id_pedido]);
 
@@ -86,6 +102,10 @@ exports.deletePedido = async (req, res) => {
     const id_pedido = req.params.id_pedido;
     
     try {
+        // 🔑 OBTENER EL POOL AQUÍ
+        const pool = getPool();
+        if (!pool) return res.status(500).json({ error: "Error de conexión a la base de datos." });
+
         // Borrado Lógico: Establece 'eliminado' a 1
         const sql = 'UPDATE Pedidos SET eliminado = 1 WHERE id_pedido = ?';
         const [result] = await pool.query(sql, [id_pedido]);

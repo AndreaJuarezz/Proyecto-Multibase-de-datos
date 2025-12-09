@@ -1,5 +1,6 @@
 // src/controllers/inventario.controller.js
-const pool = require('../db/mysql').getPool(); 
+
+const getPool = require('../db/mysql').getPool; 
 
 /**
  * Obtiene todas las existencias de inventario activas.
@@ -7,6 +8,9 @@ const pool = require('../db/mysql').getPool();
  */
 exports.getExistencias = async (req, res) => {
     try {
+        const pool = getPool();
+        if (!pool) return res.status(500).json({ error: "Error de conexión a la base de datos." });
+
         // Solo selecciona registros donde activo sea 1 (no borrados lógicamente)
         const [rows] = await pool.query('SELECT * FROM Inventario WHERE activo = 1');
         
@@ -33,12 +37,15 @@ exports.ajustarInventario = async (req, res) => {
     }
 
     try {
-        // Intenta actualizar la cantidad_existencia y marca 'activo = 1' por si estaba borrado lógicamente
+        const pool = getPool();
+        if (!pool) return res.status(500).json({ error: "Error de conexión a la base de datos." });
+        
+        // 1. Intenta actualizar (UPDATE)
         const updateSql = 'UPDATE Inventario SET cantidad_existencia = cantidad_existencia + ?, ubicacion = IFNULL(?, ubicacion), ultima_actualizacion = CURRENT_TIMESTAMP, activo = 1 WHERE id_producto = ?';
         const [result] = await pool.query(updateSql, [cantidad, ubicacion, id_producto]);
 
         if (result.affectedRows === 0) {
-            // Si no se afectó ninguna fila, el producto no existía y debemos insertarlo
+            // 2. Si no existe, inserta (INSERT)
             const insertSql = 'INSERT INTO Inventario (id_producto, cantidad_existencia, ubicacion) VALUES (?, ?, ?)';
             await pool.query(insertSql, [id_producto, cantidad, ubicacion]);
             res.status(201).json({ mensaje: "Producto insertado en Inventario con éxito." });
@@ -46,8 +53,12 @@ exports.ajustarInventario = async (req, res) => {
             res.json({ mensaje: "Existencias de producto ajustadas con éxito." });
         }
     } catch (error) {
-        console.error("Error al ajustar inventario:", error);
-        res.status(500).json({ error: "Error al procesar el ajuste de inventario." });
+        // CAMBIO CRUCIAL: Mostrar error exacto de MySQL
+        console.error("Error al ajustar inventario (FALLO SQL):", error); 
+        res.status(500).json({ 
+            error: "Error al procesar el ajuste de inventario.",
+            detalle: error.message // <-- ENVIAREMOS EL ERROR SQL DE VUELTA
+        });
     }
 };
 
@@ -57,13 +68,16 @@ exports.ajustarInventario = async (req, res) => {
  */
 exports.updateInventario = async (req, res) => {
     const id_producto = req.params.id_producto;
-    const { ubicacion } = req.body; // Solo permitimos actualizar la ubicación como ejemplo
+    const { ubicacion } = req.body; 
 
     if (!ubicacion) {
         return res.status(400).json({ error: "Debe proporcionar el campo 'ubicacion' para actualizar." });
     }
 
     try {
+        const pool = getPool();
+        if (!pool) return res.status(500).json({ error: "Error de conexión a la base de datos." });
+
         const sql = 'UPDATE Inventario SET ubicacion = ?, ultima_actualizacion = CURRENT_TIMESTAMP WHERE id_producto = ? AND activo = 1';
         const [result] = await pool.query(sql, [ubicacion, id_producto]);
 
@@ -86,6 +100,9 @@ exports.deleteInventario = async (req, res) => {
     const id_producto = req.params.id_producto; 
     
     try {
+        const pool = getPool();
+        if (!pool) return res.status(500).json({ error: "Error de conexión a la base de datos." });
+
         // Borrado Lógico: Establece 'activo' a 0
         const sql = 'UPDATE Inventario SET activo = 0, ultima_actualizacion = CURRENT_TIMESTAMP WHERE id_producto = ?';
         const [result] = await pool.query(sql, [id_producto]);
