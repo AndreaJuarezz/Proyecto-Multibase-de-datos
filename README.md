@@ -177,6 +177,24 @@ CREATE TABLE IF NOT EXISTS inventario (
     actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (producto_id) REFERENCES productos(id)
 );
+
+CREATE TABLE IF NOT EXISTS carrito (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    usuario_id VARCHAR(50) NOT NULL,
+    borrado TINYINT DEFAULT 0,
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS carrito_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    carrito_id INT NOT NULL,
+    producto_id INT NOT NULL,
+    cantidad INT NOT NULL,
+    borrado TINYINT DEFAULT 0,
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (carrito_id) REFERENCES carrito(id),
+    FOREIGN KEY (producto_id) REFERENCES productos(id)
+);
 ```
 
 ### 6. Iniciar el servidor
@@ -207,13 +225,15 @@ ecommerce-multibase/
 │   │   ├── categorias.controller.js
 │   │   ├── productos.controller.js
 │   │   ├── pedidos.controller.js
-│   │   └── inventario.controller.js
+│   │   ├── inventario.controller.js
+│   │   └── carrito.controller.js
 │   │
 │   ├── routes/                         # Definición de rutas
 │   │   ├── categorias.routes.js
 │   │   ├── productos.routes.js
 │   │   ├── pedidos.routes.js
-│   │   └── inventario.routes.js
+│   │   ├── inventario.routes.js
+│   │   └── carrito.routes.js
 │   │
 │   ├── db/                             # Conexiones a bases de datos
 │   │   ├── mysql.js                    # Configuración de MySQL
@@ -306,16 +326,16 @@ Content-Type: application/json
 }
 ```
 
-### Carrito (Redis)
+### Carrito (Redis + MySQL)
 
-- `GET /carrito` - Obtener carrito del usuario
-- `POST /carrito` - Agregar producto al carrito
-- `DELETE /carrito/:productoId` - Eliminar producto del carrito
-- `DELETE /carrito` - Vaciar carrito
+- `GET /carrito/:usuarioId` - Obtener carrito del usuario
+- `POST /carrito/:usuarioId/items` - Agregar producto al carrito (suma cantidades)
+- `DELETE /carrito/:usuarioId/items/:productoId` - Eliminar producto del carrito
+- `DELETE /carrito/:usuarioId` - Vaciar carrito
 
 **Ejemplo - Agregar al carrito:**
 ```bash
-POST http://localhost:3000/api/carrito
+POST http://localhost:3000/api/carrito/1/items
 Content-Type: application/json
 
 {

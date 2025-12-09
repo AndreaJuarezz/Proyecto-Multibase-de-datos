@@ -32,33 +32,105 @@ exports.getAllPedidos = async (req, res) => {
  * POST /api/pedidos
  */
 exports.createPedido = async (req, res) => {
-    const { id_usuario, estado, total } = req.body;
-    
-    if (!id_usuario || !estado || total === undefined) {
-        return res.status(400).json({ error: "Faltan campos obligatorios (id_usuario, estado, total)." });
+    const { id_usuario, estado } = req.body;
+
+    if (!id_usuario) {
+        return res.status(400).json({ error: "Falta id_usuario." });
     }
 
+    const estadoFinal = estado || 'pendiente';
+
+    let conn;
     try {
-        // 🔑 OBTENER EL POOL AQUÍ
         const pool = getPool();
         if (!pool) return res.status(500).json({ error: "Error de conexión a la base de datos." });
-        
-        // CORRECCIÓN: Usamos NOW() de MySQL para la fecha.
-        // NOTA: La columna id_usuario ya fue modificada a VARCHAR(30)
-        const sql = 'INSERT INTO Pedidos (id_usuario, fecha_pedido, estado, total) VALUES (?, NOW(), ?, ?)';
-        const [result] = await pool.query(sql, [id_usuario, estado, total]);
 
-        // La inserción fue exitosa
-        res.status(201).json({ 
+        conn = await pool.getConnection();
+        await conn.beginTransaction();
+
+        // Obtener carrito del usuario
+        const [carritoRows] = await conn.query(
+            'SELECT id FROM carrito WHERE usuario_id = ? AND borrado = 0 LIMIT 1',
+            [id_usuario]
+        );
+        if (carritoRows.length === 0) {
+            await conn.rollback();
+            conn.release();
+            return res.status(400).json({ error: 'El usuario no tiene carrito activo.' });
+        }
+        const carritoId = carritoRows[0].id;
+
+        // Traer items del carrito con stock actual
+        const [items] = await conn.query(
+            `SELECT ci.producto_id, ci.cantidad, p.precio, p.stock
+             FROM carrito_items ci
+             JOIN productos p ON ci.producto_id = p.id
+             WHERE ci.carrito_id = ? AND ci.borrado = 0`,
+            [carritoId]
+        );
+
+        if (items.length === 0) {
+            await conn.rollback();
+            conn.release();
+            return res.status(400).json({ error: 'El carrito está vacío.' });
+        }
+
+        // Validar stock
+        for (const item of items) {
+            if (Number(item.stock || 0) < Number(item.cantidad)) {
+                await conn.rollback();
+                conn.release();
+                return res.status(400).json({
+                    error: `Stock insuficiente para producto ${item.producto_id}. Disponible: ${item.stock}, solicitado: ${item.cantidad}`
+                });
+            }
+        }
+
+        // Calcular total
+        const totalCalculado = items.reduce((acc, it) => acc + Number(it.precio) * Number(it.cantidad), 0);
+
+        // Insertar pedido
+        const [pedidoRes] = await conn.query(
+            'INSERT INTO Pedidos (id_usuario, fecha_pedido, estado, total) VALUES (?, NOW(), ?, ?)',
+            [id_usuario, estadoFinal, totalCalculado]
+        );
+
+        // Descontar stock de cada producto
+        for (const item of items) {
+            const [upd] = await conn.query(
+                'UPDATE productos SET stock = stock - ? WHERE id = ? AND borrado = 0 AND stock >= ?',
+                [item.cantidad, item.producto_id, item.cantidad]
+            );
+            if (upd.affectedRows === 0) {
+                await conn.rollback();
+                conn.release();
+                return res.status(400).json({
+                    error: `No se pudo descontar stock para producto ${item.producto_id}`
+                });
+            }
+        }
+
+        // Vaciar carrito después de crear pedido
+        await conn.query('UPDATE carrito_items SET borrado = 1 WHERE carrito_id = ?', [carritoId]);
+
+        await conn.commit();
+        conn.release();
+
+        res.status(201).json({
             mensaje: "Pedido creado con éxito.",
-            id_pedido: result.insertId // Obtiene el ID generado por MySQL
+            id_pedido: pedidoRes.insertId,
+            total: totalCalculado
         });
 
     } catch (error) {
-        console.error("Error al crear pedido (FALLO FINAL):", error); 
+        if (conn) {
+            try { await conn.rollback(); } catch (_) {}
+            conn.release();
+        }
+        console.error("Error al crear pedido con validación de stock:", error);
         res.status(500).json({ 
             error: "Error interno al crear el pedido.",
-            detalle: error.message // Mostramos el error de Node.js para un mejor diagnóstico si falla
+            detalle: error.message
         });
     }
 };
