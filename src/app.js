@@ -11,7 +11,7 @@ const categoriasRoutes = require('./routes/categorias.routes');
 const productosRoutes = require('./routes/productos.routes'); // <-- PRODUCTOS
 const inventarioRoutes = require('./routes/inventario.routes'); // <-- NUEVO
 const pedidosRoutes = require('./routes/pedidos.routes'); // <-- NUEVO
-
+const usuariosRoutes = require('./usuarios/usuario.routes');
 const app = express();
 
 app.use(cors());
@@ -34,6 +34,6 @@ app.use('/api/categorias', categoriasRoutes);
 app.use('/api/productos', productosRoutes); // <-- PRODUCTOS REGISTRO
 app.use('/api/inventario', inventarioRoutes); // <-- NUEVO REGISTRO
 app.use('/api/pedidos', pedidosRoutes); // <-- NUEVO REGISTRO
-
+app.use('/api/usuarios', usuariosRoutes);
 // Exportar app
 module.exports = app;
