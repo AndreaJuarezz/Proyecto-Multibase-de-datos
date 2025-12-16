@@ -270,8 +270,9 @@ http://localhost:3000/api
 - `DELETE /categorias/:id` - Eliminar categoría (soft delete)
 
 **Ejemplo - Crear categoría:**
-```bash
-POST http://localhost:3000/api/categorias
+```http
+POST /api/categorias HTTP/1.1
+Host: localhost:3000
 Content-Type: application/json
 
 {
@@ -300,8 +301,9 @@ Content-Type: application/json
 - `DELETE /productos/:id` - Eliminar producto (soft delete)
 
 **Ejemplo - Crear producto:**
-```bash
-POST http://localhost:3000/api/productos
+```http
+POST /api/productos HTTP/1.1
+Host: localhost:3000
 Content-Type: application/json
 
 {
@@ -336,8 +338,9 @@ Content-Type: application/json
 - `DELETE /carrito/:usuarioId` - Vaciar carrito
 
 **Ejemplo - Agregar al carrito:**
-```bash
-POST http://localhost:3000/api/carrito/1/items
+```http
+POST /api/carrito/1/items HTTP/1.1
+Host: localhost:3000
 Content-Type: application/json
 
 {
@@ -354,8 +357,9 @@ Content-Type: application/json
 - `PATCH /pedidos/:id` - Actualizar estado del pedido
 
 **Ejemplo - Crear pedido:**
-```bash
-POST http://localhost:3000/api/pedidos
+```http
+POST /api/pedidos HTTP/1.1
+Host: localhost:3000
 Content-Type: application/json
 
 {
@@ -373,8 +377,9 @@ Content-Type: application/json
 - `DELETE /inventario/:productoId` - Borrado lógico del inventario
 
 **Ejemplo - Ajustar inventario:**
-```bash
-POST http://localhost:3000/api/inventario/ajustar
+```http
+POST /api/inventario/ajustar HTTP/1.1
+Host: localhost:3000
 Content-Type: application/json
 
 {
@@ -385,8 +390,9 @@ Content-Type: application/json
 ```
 
 **Ejemplo - Actualizar ubicación:**
-```bash
-PATCH http://localhost:3000/api/inventario/1
+```http
+PATCH /api/inventario/1 HTTP/1.1
+Host: localhost:3000
 Content-Type: application/json
 
 {
@@ -403,8 +409,9 @@ Content-Type: application/json
 - `DELETE /usuarios/:id` - Eliminar usuario
 
 **Ejemplo - Crear usuario:**
-```bash
-POST http://localhost:3000/api/usuarios
+```http
+POST /api/usuarios HTTP/1.1
+Host: localhost:3000
 Content-Type: application/json
 
 {
