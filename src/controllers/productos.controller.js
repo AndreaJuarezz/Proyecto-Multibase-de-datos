@@ -1,11 +1,10 @@
 const { getPool } = require("../db/mysql");
-const { getRedisClient } = require("../db/redis"); // <-- ¡CORREGIDO! Importación correcta
+const { getRedisClient } = require("../db/redis"); 
 
-// Nombre de la clave de caché para la lista completa de productos
 const CACHE_KEY = "productos_all"; 
 const CACHE_EXPIRATION = 3600; // 1 hora en segundos
 
-// Campos permitidos para actualizar (evitar cambios no deseados)
+
 const CAMPOS_PERMITIDOS = ["nombre", "descripcion", "precio", "categoria_id", "stock"];
 
 exports.obtenerProductos = async (req, res) => {

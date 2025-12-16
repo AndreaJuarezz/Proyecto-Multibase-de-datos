@@ -1,15 +1,28 @@
 const express = require("express");
 const router = express.Router();
 const { getPool } = require("../db/mysql");
+const { getRedisClient } = require("../db/redis");
 
 
 // GET → Obtener todas (solo activas)
 router.get("/", async (req, res) => {
     try {
+        const client = getRedisClient();
+        const cacheKey = "categorias:list";
+
+        const cached = await client.get(cacheKey);
+        if (cached) {
+            return res.json(JSON.parse(cached));
+        }
+
         const pool = getPool();
         const [rows] = await pool.query(
             "SELECT * FROM categorias WHERE borrado = 0"
         );
+
+        // Cachear por 120 segundos
+        await client.set(cacheKey, JSON.stringify(rows), { EX: 120 });
+
         res.json(rows);
     } catch (error) {
         console.error("Error al obtener categorías:", error);
@@ -22,8 +35,16 @@ router.get("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
     try {
         const { id } = req.params;
-        const pool = getPool();
+        const client = getRedisClient();
+        const cacheKey = `categorias:id:${id}`;
 
+        const cached = await client.get(cacheKey);
+        if (cached) {
+            const data = JSON.parse(cached);
+            return res.json(data);
+        }
+
+        const pool = getPool();
         const [rows] = await pool.query(
             "SELECT * FROM categorias WHERE id = ? AND borrado = 0",
             [id]
@@ -33,6 +54,7 @@ router.get("/:id", async (req, res) => {
             return res.status(404).json({ error: "Categoría no encontrada" });
         }
 
+        await client.set(cacheKey, JSON.stringify(rows[0]), { EX: 300 });
         res.json(rows[0]);
     } catch (error) {
         console.error("Error al obtener categoría:", error);
@@ -56,6 +78,12 @@ router.post("/", async (req, res) => {
             "INSERT INTO categorias (nombre) VALUES (?)",
             [nombre]
         );
+
+        // Invalidar cache de lista
+        try {
+            const client = getRedisClient();
+            await client.del("categorias:list");
+        } catch (_) {}
 
         res.json({
             id: result.insertId,
@@ -91,6 +119,13 @@ router.patch("/:id", async (req, res) => {
             return res.status(404).json({ error: "Categoría no encontrada" });
         }
 
+        // Invalidar caches relacionados
+        try {
+            const client = getRedisClient();
+            await client.del("categorias:list");
+            await client.del(`categorias:id:${id}`);
+        } catch (_) {}
+
         res.json({ message: "Categoría actualizada correctamente" });
 
     } catch (error) {
@@ -113,6 +148,13 @@ router.delete("/:id", async (req, res) => {
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: "Categoría no encontrada o ya eliminada" });
         }
+
+        // Invalidar caches relacionados
+        try {
+            const client = getRedisClient();
+            await client.del("categorias:list");
+            await client.del(`categorias:id:${id}`);
+        } catch (_) {}
 
         res.json({ message: "Categoría eliminada (borrado lógico)" });
 
