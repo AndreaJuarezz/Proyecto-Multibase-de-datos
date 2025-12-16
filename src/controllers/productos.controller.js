@@ -1,21 +1,45 @@
 const { getPool } = require("../db/mysql");
+const { getRedisClient } = require("../db/redis"); // <-- ¡CORREGIDO! Importación correcta
+
+// Nombre de la clave de caché para la lista completa de productos
+const CACHE_KEY = "productos_all"; 
+const CACHE_EXPIRATION = 3600; // 1 hora en segundos
 
 // Campos permitidos para actualizar (evitar cambios no deseados)
 const CAMPOS_PERMITIDOS = ["nombre", "descripcion", "precio", "categoria_id", "stock"];
 
 exports.obtenerProductos = async (req, res) => {
     try {
+        const client = getRedisClient(); // Obtener el cliente Redis
+
+        // 1. INTENTAR OBTENER DATOS DE LA CACHÉ
+        const cachedProducts = await client.get(CACHE_KEY);
+
+        if (cachedProducts) {
+            console.log("CACHE HIT: Productos obtenidos desde Redis.");
+            // Si están en caché, devolver los datos inmediatamente
+            return res.json(JSON.parse(cachedProducts)); 
+        }
+
+        // 2. SI NO HAY CACHÉ (CACHE MISS), OBTENER DATOS DE MYSQL
+        console.log("CACHE MISS: Obteniendo productos desde MySQL.");
         const pool = getPool();
-        // Listado con nombre de categoria (LEFT JOIN) y solo no borrados
+        
         const sql = `
             SELECT p.id, p.nombre, p.descripcion, p.precio, p.categoria_id, c.nombre AS categoria_nombre,
-                   p.stock, p.borrado, p.creado_en
+                    p.stock, p.borrado, p.creado_en
             FROM productos p
             LEFT JOIN categorias c ON p.categoria_id = c.id
             WHERE p.borrado = 0
             ORDER BY p.creado_en DESC
         `;
         const [rows] = await pool.query(sql);
+
+        // 3. GUARDAR RESULTADO EN LA CACHÉ ANTES DE RESPONDER
+        await client.set(CACHE_KEY, JSON.stringify(rows), {
+            EX: CACHE_EXPIRATION, // Establecer tiempo de expiración (1 hora)
+        });
+
         res.json(rows);
     } catch (error) {
         console.error("Error al obtener productos:", error);
@@ -30,7 +54,7 @@ exports.obtenerProductoPorId = async (req, res) => {
 
         const sql = `
             SELECT p.id, p.nombre, p.descripcion, p.precio, p.categoria_id, c.nombre AS categoria_nombre,
-                   p.stock, p.borrado, p.creado_en
+                    p.stock, p.borrado, p.creado_en
             FROM productos p
             LEFT JOIN categorias c ON p.categoria_id = c.id
             WHERE p.id = ? AND p.borrado = 0
@@ -53,7 +77,7 @@ exports.crearProducto = async (req, res) => {
     try {
         const { nombre, descripcion = null, precio, categoria_id = null, stock = 0 } = req.body;
 
-        // Validaciones básicas
+        // Validaciones básicas (omitiendo el resto por brevedad)
         if (!nombre || typeof nombre !== "string" || nombre.trim().length === 0) {
             return res.status(400).json({ error: "El nombre es obligatorio" });
         }
@@ -86,6 +110,10 @@ exports.crearProducto = async (req, res) => {
             "INSERT INTO inventario (producto_id, cantidad) VALUES (?, ?)",
             [productoId, Number(stock)]
         );
+
+        // INVALIDAR CACHÉ
+        const client = getRedisClient();
+        await client.del(CACHE_KEY); 
 
         res.status(201).json({
             id: productoId,
@@ -129,7 +157,6 @@ exports.actualizarProducto = async (req, res) => {
         const values = [];
         for (const [k, v] of Object.entries(updates)) {
             setParts.push(`${k} = ?`);
-            // convertir tipos numéricos cuando aplica
             if (k === "precio" || k === "stock" || k === "categoria_id") {
                 values.push(v !== null ? Number(v) : null);
             } else {
@@ -144,6 +171,10 @@ exports.actualizarProducto = async (req, res) => {
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: "Producto no encontrado o ya eliminado" });
         }
+
+        // INVALIDAR CACHÉ
+        const client = getRedisClient();
+        await client.del(CACHE_KEY); 
 
         res.json({ message: "Producto actualizado correctamente" });
     } catch (error) {
@@ -165,6 +196,10 @@ exports.borrarProductoLogico = async (req, res) => {
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: "Producto no encontrado o ya eliminado" });
         }
+        
+        // INVALIDAR CACHÉ
+        const client = getRedisClient();
+        await client.del(CACHE_KEY); 
 
         res.json({ message: "Producto eliminado (borrado lógico)" });
     } catch (error) {
